@@ -47,11 +47,14 @@ from srs_interaction_primitives.srv import AddObject, RemovePrimitive, SetPreGra
 from srs_interaction_primitives.msg import MoveArmToPreGrasp, PoseType 
 from srs_env_model_percp.srv import EstimateBBAlt
 from srs_object_database_msgs.srv import GetMesh, GetObjectId
+from srs_env_model.srv import LockCollisionMap
 
 from shared_state_information import *
 from arm_manip_helper_methods import *
 from simple_script_server import *
 #from cob_script_server.msg import *
+
+from cob_srvs.srv import SetJointStiffness
 
 sss = simple_script_server()
 
@@ -365,6 +368,10 @@ class grasp_unknown_object_assisted(smach.State):
     self.s_coll_obj = arm_manip_ns + '/arm_nav_coll_obj'
     self.s_rem_coll_obj = arm_manip_ns + '/arm_rem_coll_obj'
     self.s_set_attached = arm_manip_ns + '/arm_nav_set_attached'
+    
+    self.s_set_stiffness = "/arm_controller/set_joint_stiffness"
+    
+    self.s_lock_coll_map = '/but_env_model/lock_collision_map'
    
   def add_bb_to_planning(self):
       
@@ -386,7 +393,7 @@ class grasp_unknown_object_assisted(smach.State):
                allow_collision=True,
                attached=False,
                attach_to_frame_id='',
-               allow_pregrasps=True);
+               allow_pregrasps=False);
       
     except Exception, e:
       
@@ -449,7 +456,24 @@ class grasp_unknown_object_assisted(smach.State):
     if self.hlp.wait_for_srv(self.s_set_attached) is False:
         return 'failed'
     
+    if self.hlp.wait_for_srv(self.s_set_stiffness) is False:
+        return 'failed'
+    
+    if self.hlp.wait_for_srv(self.s_lock_coll_map) is False:
+        return 'failed'
+    
     self.userdata = userdata
+    
+    lock_coll_map = rospy.ServiceProxy(self.s_lock_coll_map,LockCollisionMap)
+    
+    rospy.loginfo('Locking collision map.')
+    try:
+          
+        res = lock_coll_map(lock = True)
+          
+    except Exception, e:
+          
+        rospy.logerr("Error on calling service: %s",str(e))
     
     # open gripper to cylopen
     #script_server = actionlib.SimpleActionClient('',ScriptAction)
@@ -461,7 +485,17 @@ class grasp_unknown_object_assisted(smach.State):
     
     # call allow grasping service
     #rospy.wait_for_service('/but_arm_manip/grasping_allow')
-        
+    
+    arm_stiff = rospy.ServiceProxy(self.s_set_stiffness,SetJointStiffness)
+    
+    rospy.loginfo("Setting arm stiffness")
+    try:
+          
+        st = arm_stiff([300,300,300,300,200,200,200])
+          
+    except Exception, e:
+          
+        rospy.logerr("Error on calling service: %s",str(e))  
     
     arm_nav_client = actionlib.SimpleActionClient('/but_arm_manip/manual_arm_manip_action',ManualArmManipAction)
   
@@ -568,6 +602,18 @@ class grasp_unknown_object_assisted(smach.State):
     except Exception, e:
           
       rospy.logerr("Error on calling service: %s",str(e))
+      
+      
+    
+    
+    rospy.loginfo('Unlocking collision map.')
+    try:
+          
+        res = lock_coll_map(lock = False)
+          
+    except Exception, e:
+          
+        rospy.logerr("Error on calling service: %s",str(e))
       
       
     # arm is away and object is cleared... we can end
