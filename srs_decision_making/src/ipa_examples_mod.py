@@ -125,9 +125,10 @@ class put_object_on_tray(smach.State):
             
             target_pose = "grasp-to-tray"
             target_pose2 = "tray-to-folded"
-            if userdata.surface_distance >= 0.6:
+            if userdata.surface_distance >= 0.07:
                 target_pose = "grasp-to-tray_top"
             	target_pose2 = "tray_top-to-folded"
+
             # move object to frontside
             if ipa_arm_navigation.lower() == 'true':
                 handle_arm = sss.move("arm",target_pose ,False, 'Planned')

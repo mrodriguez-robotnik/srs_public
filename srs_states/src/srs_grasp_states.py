@@ -91,7 +91,6 @@ class srs_grasp(smach.State):
         category = userdata.grasp_configuration[grasp_configuration_id].category
         userdata.surface_distance = userdata.grasp_configuration[grasp_configuration_id].surface_distance
         
-        
         if category == "TOP":
             userdata.grasp_categorisation = 'top'
             sdh_handle=sss.move("sdh", "spheropen")
@@ -152,7 +151,6 @@ class srs_grasp(smach.State):
             	arm_handle = sss.move("arm", [grasp_trajectory[0]], True, mode='Planned')
 	    else:
 		arm_handle = sss.move("arm", [grasp_trajectory[0]], True)
-            rospy.sleep(3)
             arm_handle.wait()
 
             #Move arm to grasp position.
@@ -160,7 +158,7 @@ class srs_grasp(smach.State):
             	arm_handle = sss.move("arm", [grasp_trajectory[1]], True, mode='Planned')
 	    else:
 		arm_handle = sss.move("arm", [grasp_trajectory[1]], True)
-            rospy.sleep(3)
+            rospy.sleep(1)
             arm_handle.wait()
 
 	    # To deprecate #####################################################
@@ -238,7 +236,6 @@ class srs_grasp(smach.State):
 		arm_handle = sss.move("arm", postgrasp_trajectory, True)
 
             sss.say(["I have grasped the object with success!"])
-            rospy.sleep(3)
             arm_handle.wait()
 
 
@@ -259,7 +256,6 @@ class srs_grasp(smach.State):
 
 	    if len(postgrasp_trajectory) == 0:
 		    arm_handle = sss.move("arm",[postgrasp_trajectory[len(postgrasp_trajectory)-1]], True)
-		    rospy.sleep(3)
 		    arm_handle.wait()
 
             return 'succeeded'
