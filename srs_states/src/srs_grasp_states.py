@@ -146,20 +146,22 @@ class srs_grasp(smach.State):
 	    else:
                 grasp_trajectory.append(gc);
             
+	    raw_input("----------------------dasdsadas-----------------")
             #Move arm to pregrasp position.
 	    if ipa_arm_navigation.lower() == 'true':
             	arm_handle = sss.move("arm", [grasp_trajectory[0]], True, mode='Planned')
 	    else:
 		arm_handle = sss.move("arm", [grasp_trajectory[0]], True)
-            arm_handle.wait()
+	    rospy.sleep(3)
+            arm_handle.wait(4)
 
             #Move arm to grasp position.
 	    if ipa_arm_navigation.lower() == 'true':
             	arm_handle = sss.move("arm", [grasp_trajectory[1]], True, mode='Planned')
 	    else:
 		arm_handle = sss.move("arm", [grasp_trajectory[1]], True)
-            rospy.sleep(1)
-            arm_handle.wait()
+	    rospy.sleep(3)
+            arm_handle.wait(4)
 
 	    # To deprecate #####################################################
             #sdh_handle = sss.move("sdh", [list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values)]) 
@@ -256,7 +258,8 @@ class srs_grasp(smach.State):
 
 	    if len(postgrasp_trajectory) == 0:
 		    arm_handle = sss.move("arm",[postgrasp_trajectory[len(postgrasp_trajectory)-1]], True)
-		    arm_handle.wait()
+		    rospy.sleep(3)
+		    arm_handle.wait(4)
 
             return 'succeeded'
 
