@@ -168,9 +168,9 @@ class get_feasible_grasps():
 
 	def __cmp__(self, other):
 		if other.grasp.position.z > self.grasp.position.z:
-			return -1
-		elif other.grasp.position.z < self.grasp.position.z:
 			return 1
+		elif other.grasp.position.z < self.grasp.position.z:
+			return -1
 		else:
 			return 0
 

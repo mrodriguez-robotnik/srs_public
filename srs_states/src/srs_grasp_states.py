@@ -139,7 +139,7 @@ class srs_grasp(smach.State):
 		grasp_trajectory.append(pgc1)
                 
             #grasp
-            (gc, error_code) = grasping_functions.graspingutils.callIKSolver(grasp_trajectory[len(grasp_trajectory)-1], grasp_stamped)
+            (gc, error_code) = grasping_functions.graspingutils.callIKSolver(grasp_trajectory[0], grasp_stamped)
             if(error_code.val != error_code.SUCCESS):
                 sss.say(["I can not move the arm to the grasp position!"])
                 raise BadGrasp();
@@ -193,9 +193,9 @@ class srs_grasp(smach.State):
                 #Regrasp (close MORE the fingers)
                 regrasp = list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values)
                 print "Current config, trying regrasp:\n", regrasp
-                regrasp[1] += 0.07
-                regrasp[3] += 0.07
-                regrasp[5] += 0.07
+                regrasp[1] += 0.08
+                regrasp[3] += 0.08
+                regrasp[5] += 0.08
                 print "to:\n", regrasp
 
 		# To deprecate #################################################
@@ -236,11 +236,9 @@ class srs_grasp(smach.State):
             	arm_handle = sss.move("arm", postgrasp_trajectory, True, mode='Planned')
 	    else:
 		arm_handle = sss.move("arm", postgrasp_trajectory, True)
-
-            sss.say(["I have grasped the object with success!"])
             arm_handle.wait()
 
-
+	    """	
 	    #second postgrasp
             aux_x = post_grasp_stamped.pose.position.x;
             aux = 0.05;
@@ -260,7 +258,13 @@ class srs_grasp(smach.State):
 		    arm_handle = sss.move("arm",[postgrasp_trajectory[len(postgrasp_trajectory)-1]], True)
 		    rospy.sleep(3)
 		    arm_handle.wait(4)
+	   """
+	
+            if not grasping_functions.graspingutils.sdh_tactil_sensor_result():
+		    sss.say(["The object has fallen!"])
+		    raise BadGrasp();
 
+            sss.say(["I have grasped the object with success!"])
             return 'succeeded'
 
         except BadGrasp:
