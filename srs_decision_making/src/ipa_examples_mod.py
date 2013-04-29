@@ -166,7 +166,7 @@ class put_object_on_tray(smach.State):
         if self.preempt_requested():
             self.service_preempt()
             return 'preempted'
-        else:     
+        else:    
             try:
                 service_full_name = '/tray_monitor/occupied'
                 #rospy.wait_for_service(service_full_name,rospy.get_param('server_timeout',3))
@@ -188,7 +188,6 @@ class put_object_on_tray(smach.State):
                     rospy.logerr("<<%s>> service not available, error: %s",service_full_name, error_message)
                     print "the service /tray_monitor/occupied is not available"
                     return 'failed'
-
 
 #verify_object FROM PRO+IPA, the interface still need to be clarified 
 class verify_object(smach.State):
