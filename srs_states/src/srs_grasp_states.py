@@ -70,43 +70,24 @@ class srs_grasp(smach.State):
 
 	self.current_arm_state = [];
         self.arm_state = rospy.Subscriber("/arm_controller/state", JointTrajectoryControllerState, self.get_joint_state)
-        self.client = actionlib.SimpleActionClient('/but_arm_manip/reactive_grasping_action',ReactiveGraspingAction)
+
 
     def get_joint_state(self, msg):
         self.current_arm_state = list(msg.desired.positions)
 
-
-    def close_hand(self, config):
-
-	# To deprecate #################################################
-	#sdh_handle = sss.move("sdh", config) 
-	#sdh_handle.wait() 
-	#rospy.sleep(10) 
-	################################################################
-
-	#Close SDH based on the grasp configuration to grasp.
-	rospy.loginfo("Waiting for reactive grasping server...")
-	self.client.wait_for_server()
-
-	rospy.loginfo('Opening gripper using cob_script_server')
-	goal = ReactiveGraspingGoal()
-
-	goal.target_configuration.data = config
-	f = 3000.0
-	goal.max_force.data = [f, f, f, f, f, f] # 6 tactile pads
-	goal.time = rospy.Duration(3.0)
-
-	self.client.send_goal(goal)
-
-	rospy.loginfo('Closing gripper using reactive grasping')
-	self.client.wait_for_result()
-	result = self.client.get_result()
-	rospy.sleep(6)
-
+    def get_fake_id(self, grasp_configuration):
+	#TOP grasps priority.
+	for i in range(0, len(grasp_configuration)):
+		if grasp_configuration[i].category == "TOP":
+			return i;
+	return (len(grasp_configuration)-1);
 
     def execute(self, userdata):
 
+        client = actionlib.SimpleActionClient('/but_arm_manip/reactive_grasping_action',ReactiveGraspingAction)
         grasp_configuration_id = userdata.grasp_configuration_id
+        #grasp_configuration_id = self.get_fake_id(userdata.grasp_configuration);
+	
         category = userdata.grasp_configuration[grasp_configuration_id].category
         userdata.surface_distance = userdata.grasp_configuration[grasp_configuration_id].surface_distance
         
@@ -127,7 +108,6 @@ class srs_grasp(smach.State):
         while self.arm_state.get_num_connections() == 0:
     		time.sleep(0.3)
     		continue
-
         #pregrasps
         pre_grasp_stamped = copy.deepcopy(userdata.grasp_configuration[grasp_configuration_id].pre_grasp);
         
@@ -145,7 +125,6 @@ class srs_grasp(smach.State):
         
         class BadGrasp(Exception): pass
         try:
-	    ipa_arm_navigation = "None"
             try:
                 ipa_arm_navigation = rospy.get_param("srs/ipa_arm_navigation")
             except Exception, e:
@@ -160,7 +139,7 @@ class srs_grasp(smach.State):
 		grasp_trajectory.append(pgc1)
                 
             #grasp
-            (gc, error_code) = grasping_functions.graspingutils.callIKSolver(grasp_trajectory[0], grasp_stamped)
+            (gc, error_code) = grasping_functions.graspingutils.callIKSolver(grasp_trajectory[len(grasp_trajectory)-1], grasp_stamped)
             if(error_code.val != error_code.SUCCESS):
                 sss.say(["I can not move the arm to the grasp position!"])
                 raise BadGrasp();
@@ -183,20 +162,54 @@ class srs_grasp(smach.State):
 	    rospy.sleep(3)
             arm_handle.wait(4)
 
-	    #Close hand
-            self.close_hand(list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values));
+	    # To deprecate #####################################################
+            #sdh_handle = sss.move("sdh", [list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values)]) 
+       	    #sdh_handle.wait() 
+	    #rospy.sleep(10) 
+	    ####################################################################
+	    
+            #Close SDH based on the grasp configuration to grasp.
+            rospy.loginfo("Waiting for reactive grasping server...")
+            client.wait_for_server()
+            
+            rospy.loginfo('Opening gripper using cob_script_server')
+            goal = ReactiveGraspingGoal()
+            
+            goal.target_configuration.data = list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values)
+            f = 3000.0
+            goal.max_force.data = [f, f, f, f, f, f] # 6 tactile pads
+            goal.time = rospy.Duration(3.0)
+            
+            client.send_goal(goal)
+            
+            rospy.loginfo('Closing gripper using reactive grasping')
+            client.wait_for_result()
+            result = client.get_result()
+	    rospy.sleep(6)
 
             #Confirm the grasp based on force feedback
             if not grasping_functions.graspingutils.sdh_tactil_sensor_result():
                 #Regrasp (close MORE the fingers)
                 regrasp = list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values)
                 print "Current config, trying regrasp:\n", regrasp
-                regrasp[1] += 0.08
-                regrasp[3] += 0.08
-                regrasp[5] += 0.08
+                regrasp[1] += 0.07
+                regrasp[3] += 0.07
+                regrasp[5] += 0.07
                 print "to:\n", regrasp
 
-		self.close_hand(regrasp);
+		# To deprecate #################################################
+		#sdh_handle = sss.move("sdh", [list(userdata.grasp_configuration[grasp_configuration_id].sdh_joint_values)]) 
+		#sdh_handle.wait() 
+		#rospy.sleep(10) 
+		################################################################
+
+		goal.target_configuration.data = regrasp
+		client.send_goal(goal)
+
+		rospy.loginfo('Regrasp: Closing gripper using reactive grasping')
+		client.wait_for_result()
+		result = client.get_result()
+		rospy.sleep(6)
 
                 if not grasping_functions.graspingutils.sdh_tactil_sensor_result():
                     sss.say(["I can not fix the object correctly!"])
@@ -222,14 +235,31 @@ class srs_grasp(smach.State):
             	arm_handle = sss.move("arm", postgrasp_trajectory, True, mode='Planned')
 	    else:
 		arm_handle = sss.move("arm", postgrasp_trajectory, True)
+
+            sss.say(["I have grasped the object with success!"])
             arm_handle.wait()
 
 
-            if not grasping_functions.graspingutils.sdh_tactil_sensor_result():
-		    sss.say(["The object has fallen!"])
-		    raise BadGrasp();
+	    #second postgrasp
+            aux_x = post_grasp_stamped.pose.position.x;
+            aux = 0.05;
+            postgrasp_trajectory = [];
 
-            sss.say(["I have grasped the object with success!"])
+            for i in range(0,5):
+                post_grasp_stamped.pose.position.x = aux_x + aux;
+                (post_grasp_conf2, error_code) = grasping_functions.graspingutils.callIKSolver(post_grasp_conf, post_grasp_stamped)
+                aux += 0.01;
+                if(error_code.val == error_code.SUCCESS):
+                    postgrasp_trajectory.append(post_grasp_conf2);
+                    break;
+		else:
+		    print "Second postgrasp failed: ",i
+
+	    if len(postgrasp_trajectory) == 0:
+		    arm_handle = sss.move("arm",[postgrasp_trajectory[len(postgrasp_trajectory)-1]], True)
+		    rospy.sleep(3)
+		    arm_handle.wait(4)
+
             return 'succeeded'
 
         except BadGrasp:
